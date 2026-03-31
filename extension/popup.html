@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>NepText</title>
+  <style>
+    :root {
+      --bg: #fafafa;
+      --card: #ffffff;
+      --fg: #0a0a0a;
+      --muted: #737373;
+      --border: #e5e5e5;
+      --gold-from: #eab308;
+      --gold-to: #fde68a;
+      --green: #22c55e;
+      --red: #ef4444;
+      --amber: #f59e0b;
+    }
+    @media (prefers-color-scheme: dark) {
+      :root {
+        --bg: #0a0a0a;
+        --card: #171717;
+        --fg: #fafafa;
+        --muted: #a3a3a3;
+        --border: #262626;
+      }
+    }
+
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      width: 380px;
+      min-height: 460px;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      font-size: 13px;
+      background: var(--bg);
+      color: var(--fg);
+    }
+
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .header-left { display: flex; align-items: center; gap: 8px; }
+    .header-left img { width: 24px; height: 24px; border-radius: 4px; }
+    .header-left h1 { font-size: 14px; font-weight: 600; }
+    .header-left span { font-size: 9px; color: var(--muted); }
+    .status { font-size: 9px; padding: 2px 8px; border-radius: 99px; background: var(--border); color: var(--muted); }
+    .status.live { background: #dcfce7; color: #16a34a; }
+
+    .tabs {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 4px;
+      padding: 10px 14px 0;
+    }
+    .tab {
+      padding: 6px 4px;
+      font-size: 11px;
+      font-weight: 500;
+      border: none;
+      background: transparent;
+      color: var(--muted);
+      cursor: pointer;
+      border-radius: 6px;
+      transition: all 0.15s;
+    }
+    .tab:hover { background: var(--border); }
+    .tab.active {
+      background: var(--fg);
+      color: var(--bg);
+    }
+
+    .content { padding: 10px 14px 14px; }
+
+    textarea {
+      width: 100%;
+      min-height: 90px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--card);
+      color: var(--fg);
+      font-size: 13px;
+      font-family: inherit;
+      resize: vertical;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    textarea:focus { border-color: var(--gold-from); }
+
+    .actions {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-top: 8px;
+    }
+    .actions-left { display: flex; gap: 6px; }
+    .icon-btn {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      background: transparent;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      cursor: pointer;
+      color: var(--muted);
+      font-size: 14px;
+      transition: all 0.15s;
+    }
+    .icon-btn:hover { background: var(--border); }
+
+    .analyze-btn {
+      padding: 6px 16px;
+      border: none;
+      border-radius: 99px;
+      background: linear-gradient(135deg, var(--gold-from), var(--gold-to));
+      color: #1a1a1a;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      gap: 4px;
+      transition: opacity 0.15s;
+    }
+    .analyze-btn:hover { opacity: 0.9; }
+    .analyze-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+
+    .result {
+      margin-top: 10px;
+      padding: 10px;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      background: var(--card);
+      animation: slideUp 0.2s ease;
+    }
+    @keyframes slideUp {
+      from { opacity: 0; transform: translateY(6px); }
+      to { opacity: 1; transform: translateY(0); }
+    }
+
+    .result-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 8px;
+    }
+    .result-label {
+      font-size: 10px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+      color: var(--muted);
+      font-weight: 500;
+    }
+    .clear-btn {
+      font-size: 10px;
+      background: none;
+      border: none;
+      color: var(--muted);
+      cursor: pointer;
+      text-decoration: underline;
+    }
+
+    .badge {
+      display: inline-block;
+      padding: 3px 10px;
+      border-radius: 99px;
+      font-size: 12px;
+      font-weight: 500;
+      background: var(--border);
+    }
+
+    .score-bar {
+      height: 4px;
+      border-radius: 99px;
+      background: var(--border);
+      margin: 8px 0;
+      overflow: hidden;
+    }
+    .score-bar-fill {
+      height: 100%;
+      border-radius: 99px;
+      background: linear-gradient(90deg, var(--gold-from), var(--gold-to));
+      transition: width 0.3s ease;
+    }
+
+    .correction {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 4px 8px;
+      font-size: 12px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      margin-bottom: 4px;
+    }
+    .correction .old { text-decoration: line-through; color: var(--red); }
+    .correction .arrow { color: var(--muted); }
+    .correction .new { color: var(--green); font-weight: 500; }
+
+    .apply-btn {
+      width: 100%;
+      margin-top: 8px;
+      padding: 6px;
+      border: none;
+      border-radius: 99px;
+      background: linear-gradient(135deg, var(--gold-from), var(--gold-to));
+      color: #1a1a1a;
+      font-weight: 600;
+      font-size: 12px;
+      cursor: pointer;
+    }
+
+    .predictions {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px;
+      margin-top: 6px;
+    }
+    .pred-chip {
+      padding: 3px 10px;
+      border: 1px solid var(--border);
+      border-radius: 99px;
+      font-size: 11px;
+      background: var(--card);
+      cursor: pointer;
+      transition: all 0.15s;
+    }
+    .pred-chip:hover {
+      background: var(--border);
+    }
+
+    .cat-row {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 11px;
+      margin-bottom: 4px;
+    }
+    .cat-name { width: 50px; color: var(--muted); }
+    .cat-bar { flex: 1; height: 4px; background: var(--border); border-radius: 99px; overflow: hidden; }
+    .cat-bar-fill { height: 100%; background: linear-gradient(90deg, var(--gold-from), var(--gold-to)); border-radius: 99px; }
+    .cat-val { width: 30px; text-align: right; color: var(--muted); font-size: 10px; }
+
+    .loading {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 12px;
+      color: var(--muted);
+      margin-top: 8px;
+    }
+    .loading .dot {
+      width: 5px; height: 5px;
+      border-radius: 50%;
+      background: var(--gold-from);
+      animation: bounce 0.6s infinite alternate;
+    }
+    @keyframes bounce { to { transform: translateY(-4px); } }
+
+    .settings-row {
+      padding: 10px 14px;
+      border-top: 1px solid var(--border);
+      font-size: 10px;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .settings-row input {
+      font-size: 10px;
+      font-family: monospace;
+      padding: 2px 6px;
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      background: var(--card);
+      color: var(--fg);
+      width: 180px;
+    }
+  </style>
+</head>
+<body>
+  <div class="header">
+    <div class="header-left">
+      <img src="icon.png" alt="NepText" />
+      <div>
+        <h1>NepText</h1>
+        <span>नेपाली भाषा टुलकिट</span>
+      </div>
+    </div>
+    <span class="status" id="status">Offline</span>
+  </div>
+
+  <div class="tabs">
+    <button class="tab active" data-mode="sentiment">🧠 Sentiment</button>
+    <button class="tab" data-mode="spell">✏️ Spell</button>
+    <button class="tab" data-mode="predict">💡 Predict</button>
+  </div>
+
+  <div class="content">
+    <textarea id="input" placeholder="Type or paste Nepali / Romanized text…"></textarea>
+    <div class="actions">
+      <div class="actions-left">
+        <button class="icon-btn" id="copy-btn" title="Copy">📋</button>
+      </div>
+      <button class="analyze-btn" id="analyze-btn">
+        🔍 <span id="btn-label">Analyze</span>
+      </button>
+    </div>
+    <div id="result-area"></div>
+    <div id="loading" class="loading" style="display:none">
+      <span class="dot"></span> Analyzing…
+    </div>
+  </div>
+
+  <div class="settings-row">
+    <span>API:</span>
+    <input type="text" id="api-url" placeholder="http://127.0.0.1:8000" />
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>
