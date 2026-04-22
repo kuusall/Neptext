@@ -83,13 +83,12 @@ export default function PredictionChips({
         {rankedSuggestions.map((s, index) => {
           const percent = Math.round(s.probability * 100);
           const isTopPick = index === 0;
-          const hotkeyNumber = index + 1;
+          const shortcut = `Alt+${index + 1}`;
           return (
             <button
               key={`${s.word}-${index}`}
               type="button"
               onClick={() => onSelect(s.word)}
-              title={`Insert ${s.word} (Alt+${hotkeyNumber})`}
               className={`w-full rounded-md border p-2 text-left transition-colors ${
                 isTopPick
                   ? "border-primary/40 bg-gradient-to-r from-primary/10 via-primary/5 to-background shadow-elevated"
@@ -97,14 +96,8 @@ export default function PredictionChips({
               }`}
             >
               <div className="flex items-center gap-2">
-                <span
-                  className={`inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full border text-[10px] font-bold ${
-                    isTopPick
-                      ? "border-primary/50 bg-primary text-primary-foreground"
-                      : "border-border bg-muted text-muted-foreground"
-                  }`}
-                >
-                  {hotkeyNumber}
+                <span className={`text-[10px] font-semibold w-6 shrink-0 ${isTopPick ? "text-primary" : "text-muted-foreground"}`}>
+                  #{index + 1}
                 </span>
                 <span className={`text-sm truncate ${isTopPick ? "font-semibold" : "font-medium"}`}>{s.word}</span>
                 {isTopPick && (
@@ -112,7 +105,9 @@ export default function PredictionChips({
                     Top 1
                   </Badge>
                 )}
-                <span className="ml-auto text-[10px] text-muted-foreground">Alt</span>
+                <span className="ml-auto text-[10px] rounded-full border px-1.5 py-0.5 text-muted-foreground">
+                  {shortcut}
+                </span>
                 <span className="text-[11px] font-semibold text-muted-foreground">{percent}%</span>
               </div>
               <Progress value={percent} className={`${isTopPick ? "h-2" : "h-1.5"} mt-1.5`} />

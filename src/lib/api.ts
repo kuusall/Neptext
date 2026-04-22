@@ -36,7 +36,6 @@ export interface PredictionResult {
   }>;
 }
 
-<<<<<<< HEAD
 const SENTIMENT_BY_LABEL_ID: Record<number, string> = {
   0: "negative",
   1: "semi_negative",
@@ -69,8 +68,6 @@ const SENTIMENT_ALIASES: Record<string, string> = {
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
-=======
->>>>>>> fc848259d3dd031c643dd9845f762094d6bdcdf1
 
 function normalizeConfidence(raw: unknown): number {
   const parsed = Number(raw);
@@ -167,16 +164,13 @@ export async function spellCheck(text: string, suggestOnly = false): Promise<Spe
   return apiPost<SpellCheckResult>("/spell-correct", { text, suggest_only: suggestOnly });
 }
 
-<<<<<<< HEAD
 export async function predictText(text: string, topK = 5): Promise<PredictionResult> {
   return apiPost<PredictionResult>("/word-predict", { text, top_k: topK });
 }
-=======
 export async function predictText(text: string, cursorPosition?: number): Promise<PredictionResult> {
   return apiCall<PredictionResult>("/api/predict", { text, cursor_position: cursorPosition });
 }
 
->>>>>>> fc848259d3dd031c643dd9845f762094d6bdcdf1
 
 export function getApiBaseUrl(): string {
   console.log("API Base URL:", API_BASE_URL);

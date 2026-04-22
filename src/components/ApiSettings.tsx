@@ -59,17 +59,14 @@ export default function ApiSettings({ connected, onTest }: ApiSettingsProps) {
 
           <div className="text-xs text-muted-foreground space-y-1">
             <p className="font-medium text-foreground">Expected endpoints:</p>
-<<<<<<< HEAD
             <code className="block text-[10px] bg-muted rounded px-2 py-1">GET /health</code>
             <code className="block text-[10px] bg-muted rounded px-2 py-1">POST /sentiment</code>
             <code className="block text-[10px] bg-muted rounded px-2 py-1">POST /spell-correct</code>
             <code className="block text-[10px] bg-muted rounded px-2 py-1">POST /word-predict</code>
-=======
             <code className="block text-[10px] bg-muted rounded px-2 py-1">POST /api/sentiment</code>
             <code className="block text-[10px] bg-muted rounded px-2 py-1">POST /api/spell-check</code>
             <code className="block text-[10px] bg-muted rounded px-2 py-1">POST /api/predict</code>
             
->>>>>>> fc848259d3dd031c643dd9845f762094d6bdcdf1
           </div>
 
           <Button size="sm" variant="outline" className="w-full text-xs" onClick={onTest}>
