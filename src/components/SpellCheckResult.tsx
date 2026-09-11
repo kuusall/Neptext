@@ -13,14 +13,14 @@ interface SpellCheckResultProps {
   originalText: string;
   correctedText: string;
   corrections: Correction[];
-  onApply: (corrected: string) => void;
+  onFix: (index: number, suggest: string) => void;
 }
 
 export default function SpellCheckResultDisplay({
   originalText,
   correctedText,
   corrections,
-  onApply,
+  onFix,
 }: SpellCheckResultProps) {
   if (corrections.length === 0) {
     return (
@@ -44,28 +44,29 @@ export default function SpellCheckResultDisplay({
         {corrections.map((c, i) => (
           <div
             key={i}
-            className="flex items-center gap-2 text-sm rounded-lg border px-3 py-2 bg-card"
+            className="flex items-center justify-between gap-2 text-sm rounded-lg border px-3 py-2 bg-card"
           >
-            <span className="line-through text-red-400">{c.from}</span>
-            <span className="text-muted-foreground">→</span>
-            <span className="font-medium text-emerald-500">{c.suggest}</span>
+            <div className="flex items-center gap-2">
+              <span className="line-through text-red-400">{c.from}</span>
+              <span className="text-muted-foreground">→</span>
+              <span className="font-medium text-emerald-500">{c.suggest}</span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-7 px-2 text-[10px]"
+              onClick={() => onFix(c.index, c.suggest)}
+            >
+              Fix
+            </Button>
           </div>
         ))}
       </div>
 
       <div className="rounded-lg border p-3 bg-card">
-        <p className="text-xs text-muted-foreground mb-1">Original: {originalText}</p>
+        <p className="text-xs text-muted-foreground mb-1">Full Corrected Text:</p>
         <p className="text-sm leading-relaxed">{correctedText}</p>
       </div>
-
-      <Button
-        variant="hero"
-        size="sm"
-        className="w-full rounded-full"
-        onClick={() => onApply(correctedText)}
-      >
-        Apply Corrections
-      </Button>
     </div>
   );
 }

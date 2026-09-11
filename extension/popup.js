@@ -3,6 +3,8 @@ const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 
 let mode = "sentiment";
+let topPrediction = "";
+let spellResults = null;
 const input = $("#input");
 const resultArea = $("#result-area");
 const loading = $("#loading");
@@ -10,6 +12,7 @@ const analyzeBtn = $("#analyze-btn");
 const btnLabel = $("#btn-label");
 const statusEl = $("#status");
 const apiUrlInput = $("#api-url");
+const ghostText = $("#ghost-text");
 
 const SENTIMENT_BY_LABEL_ID = {
   0: "negative",
@@ -36,6 +39,28 @@ function escapeHtml(text) {
     .replace(/'/g, "&#39;");
 }
 
+function normalizePredictions(items) {
+  if (!items || !Array.isArray(items)) return [];
+  const seen = new Set();
+  return items
+    .map((item) => ({
+      word: (item.word || "").trim(),
+      probability: Math.max(0, Math.min(1, Number(item.probability) || 0)),
+    }))
+    .filter((item) => item.word.length > 0)
+    .sort((a, b) => b.probability - a.probability)
+    .filter((item) => {
+      if (seen.has(item.word)) return false;
+      seen.add(item.word);
+      return true;
+    });
+}
+
+function clearResults() {
+  resultArea.innerHTML = "";
+  spellResults = null;
+}
+
 // Load saved API URL
 chrome.storage.local.get(["apiBaseUrl", "selectedText"], (data) => {
   apiUrlInput.value = data.apiBaseUrl || "https://neptext-server-production.up.railway.app";
@@ -56,7 +81,7 @@ $$(".tab").forEach((tab) => {
     $$(".tab").forEach((t) => t.classList.remove("active"));
     tab.classList.add("active");
     mode = tab.dataset.mode;
-    resultArea.innerHTML = "";
+    clearResults();
     updateBtnLabel();
   });
 });
@@ -66,15 +91,85 @@ function updateBtnLabel() {
   btnLabel.textContent = labels[mode] || "Analyze";
 }
 
+function updateGhostText() {
+  if (!ghostText) return;
+  const rawText = input.value;
+  let html = "";
+  let lastIndex = 0;
+
+  if (spellResults) {
+    const suggestions = [...spellResults.suggestions].sort((a, b) => a.index - b.index);
+    suggestions.forEach(s => {
+      html += escapeHtml(rawText.slice(lastIndex, s.index));
+      html += `<span class="spell-error">${escapeHtml(rawText.slice(s.index, s.index + s.from.length))}</span>`;
+      lastIndex = s.index + s.from.length;
+    });
+  }
+  html += escapeHtml(rawText.slice(lastIndex));
+
+  const predictionHtml = (mode === "predict" && rawText.endsWith(" ") && topPrediction)
+    ? `<span class="prediction">${escapeHtml(topPrediction)}</span>`
+    : "";
+
+  ghostText.innerHTML = `${html}${predictionHtml}`;
+}
+
 // Copy
 $("#copy-btn").addEventListener("click", () => {
   navigator.clipboard.writeText(input.value);
 });
 
-// Analyze
-analyzeBtn.addEventListener("click", async () => {
+function fixSingleError(index, suggest) {
+  if (!spellResults) return;
+  const error = spellResults.suggestions.find(s => s.index === index);
+  if (!error) return;
+  const text = input.value;
+  const newText = text.slice(0, error.index) + suggest + text.slice(error.index + error.from.length);
+  input.value = newText;
+  handleSpellCheck();
+}
+
+async function handleSpellCheck() {
   const text = input.value.trim();
-  if (!text) return;
+  if (text.length < 2) {
+    spellResults = null;
+    updateGhostText();
+    return;
+  }
+
+  loading.style.display = "flex";
+  analyzeBtn.disabled = true;
+
+  chrome.runtime.sendMessage(
+    { type: "API_CALL", endpoint: "/spell-correct", body: { text, suggest_only: false } },
+    (response) => {
+      loading.style.display = "none";
+      analyzeBtn.disabled = false;
+
+      if (response && response.success) {
+        statusEl.textContent = "Live";
+        statusEl.classList.add("live");
+        spellResults = response.data;
+        renderSpellCheck(response.data);
+        updateGhostText();
+      } else {
+        statusEl.textContent = "Offline";
+        statusEl.classList.remove("live");
+        renderApiError(response?.error || "Cannot reach API server");
+      }
+    }
+  );
+}
+
+async function performAnalysis() {
+  const text = input.value.trim();
+  if (text.length < 2) {
+    if (mode === "predict") {
+      topPrediction = "";
+      updateGhostText();
+    }
+    return;
+  }
 
   const endpoints = {
     sentiment: "/sentiment",
@@ -89,7 +184,7 @@ analyzeBtn.addEventListener("click", async () => {
   };
 
   loading.style.display = "flex";
-  resultArea.innerHTML = "";
+  clearResults();
   analyzeBtn.disabled = true;
 
   chrome.runtime.sendMessage(
@@ -109,7 +204,26 @@ analyzeBtn.addEventListener("click", async () => {
       }
     }
   );
+}
+
+// Input event for autocomplete
+input.addEventListener("input", () => {
+  const val = input.value;
+  if (mode === "predict") {
+    if (val.endsWith(" ")) {
+      performAnalysis();
+    } else if (topPrediction) {
+      // Clear prediction if user starts typing the word
+      topPrediction = "";
+    }
+  }
+  updateGhostText();
 });
+
+// Analyze
+analyzeBtn.addEventListener("click", performAnalysis);
+
+$("#spell-check-btn").addEventListener("click", handleSpellCheck);
 
 function renderResult(data) {
   switch (mode) {
@@ -131,7 +245,7 @@ function renderApiError(message) {
     <div class="result">
       <div class="result-header">
         <span class="result-label">API Error</span>
-        <button class="clear-btn" onclick="this.closest('.result').remove()">Clear</button>
+        <button class="clear-btn" onclick="clearResults()">Clear</button>
       </div>
       <p style="font-size:12px;color:var(--red);line-height:1.5">${safeMessage}</p>
     </div>`;
@@ -198,7 +312,7 @@ function renderSentiment(data) {
     <div class="result">
       <div class="result-header">
         <span class="result-label">Sentiment</span>
-        <button class="clear-btn" onclick="this.closest('.result').remove()">Clear</button>
+        <button class="clear-btn" onclick="clearResults()">Clear</button>
       </div>
       <div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">
         <span style="font-size:18px">${emoji}</span>
@@ -212,35 +326,47 @@ function renderSentiment(data) {
 
 function renderSpellCheck(data) {
   const corrections = data.suggestions
-    .map((c) => `<div class="correction"><span class="old">${c.from}</span><span class="arrow">→</span><span class="new">${c.suggest}</span></div>`)
-    .join("");
+    .map((c) => `
+      <div class="correction">
+        <div style="display:flex; align-items:center; gap:6px;">
+          <span class="old">${escapeHtml(c.from)}</span>
+          <span class="arrow">→</span>
+          <span class="new">${escapeHtml(c.suggest)}</span>
+        </div>
+        <button class="fix-btn" data-index="${c.index}" data-suggest="${escapeHtml(c.suggest)}" style="padding:2px 6px; font-size:10px; cursor:pointer; background:var(--card); border:1px solid var(--border); border-radius:4px;">Fix</button>
+      </div>`).join("");
 
   resultArea.innerHTML = `
     <div class="result">
       <div class="result-header">
         <span class="result-label">Spell Check</span>
-        <button class="clear-btn" onclick="this.closest('.result').remove()">Clear</button>
+        <button class="clear-btn" onclick="clearResults()">Clear</button>
       </div>
       ${data.suggestions.length === 0
         ? '<p style="color:var(--green);font-size:12px">✅ No errors found!</p>'
         : `${corrections}
-           <p style="font-size:11px;color:var(--muted);margin-top:6px">Original: ${data.original_text}</p>
-           <p style="font-size:12px;padding:6px;border:1px solid var(--border);border-radius:6px;margin-top:6px">${data.corrected_text}</p>
-           <button class="apply-btn" id="apply-corrections">Apply Corrections</button>`
+           <p style="font-size:11px;color:var(--muted);margin-top:6px">Original: ${escapeHtml(data.original_text)}</p>
+           <p style="font-size:12px;padding:6px;border:1px solid var(--border);border-radius:6px;margin-top:6px">${escapeHtml(data.corrected_text)}</p>`
       }
     </div>`;
 
-  const applyBtn = document.getElementById("apply-corrections");
-  if (applyBtn) {
-    applyBtn.addEventListener("click", () => {
-      input.value = data.corrected_text;
-      resultArea.innerHTML = "";
+  resultArea.querySelectorAll(".fix-btn").forEach(btn => {
+    btn.addEventListener("click", () => {
+      fixSingleError(Number(btn.dataset.index), btn.dataset.suggest);
     });
-  }
+  });
 }
 
 function renderPredictions(data) {
-  const chips = data.predictions
+  const normalized = normalizePredictions(data.predictions);
+  if (normalized.length > 0) {
+    topPrediction = normalized[0].word;
+  } else {
+    topPrediction = "";
+  }
+  updateGhostText();
+
+  const chips = normalized
     .map((s) => `<button class="pred-chip" data-word="${s.word}">${s.word} (${Math.round(s.probability * 100)}%)</button>`)
     .join("");
 
@@ -248,7 +374,7 @@ function renderPredictions(data) {
     <div class="result">
       <div class="result-header">
         <span class="result-label">Predictions</span>
-        <button class="clear-btn" onclick="this.closest('.result').remove()">Clear</button>
+        <button class="clear-btn" onclick="clearResults()">Clear</button>
       </div>
       <div class="predictions">${chips}</div>
     </div>`;
@@ -257,8 +383,9 @@ function renderPredictions(data) {
     chip.addEventListener("click", () => {
       const word = chip.dataset.word;
       input.value = input.value.endsWith(" ") ? input.value + word : input.value + " " + word;
-      resultArea.innerHTML = "";
       input.focus();
+      updateGhostText();
+      performAnalysis();
     });
   });
 }
@@ -267,5 +394,41 @@ function renderPredictions(data) {
 chrome.runtime.onMessage.addListener((msg) => {
   if (msg.type === "SELECTED_TEXT" && msg.text) {
     input.value = msg.text;
+  }
+});
+
+window.addEventListener("keydown", (event) => {
+  if (mode !== "predict") return;
+
+  if (event.key === "Escape") {
+    topPrediction = "";
+    updateGhostText();
+    return;
+  }
+
+  if (event.key === "Tab" && topPrediction) {
+    event.preventDefault();
+    input.value = input.value.endsWith(" ") ? input.value + topPrediction : input.value + " " + topPrediction;
+    topPrediction = "";
+    updateGhostText();
+    input.focus();
+    performAnalysis();
+    return;
+  }
+
+  if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
+    if (loading.style.display === "flex" || !input.value.trim()) return;
+    event.preventDefault();
+    performAnalysis();
+    return;
+  }
+
+  if (!event.altKey || loading.style.display === "flex") return;
+
+  const chips = resultArea.querySelectorAll(".pred-chip");
+  const index = Number(event.key) - 1;
+  if (Number.isInteger(index) && index >= 0 && index < chips.length && index < 9) {
+    event.preventDefault();
+    chips[index].click();
   }
 });

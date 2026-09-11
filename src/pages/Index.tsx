@@ -18,7 +18,7 @@ import {
   predictText,
 } from "@/lib/api";
 
-type Mode = "sentiment" | "spell" | "predict";
+type Mode = "sentiment" | "predict";
 
 type PredictionItem = { word: string; probability: number };
 
@@ -38,6 +38,24 @@ function normalizePredictions(items: PredictionItem[]): PredictionItem[] {
     });
 }
 
+  const renderTextWithHighlights = () => {
+    if (!spellResults) return text;
+
+    let highlightedText = text;
+    const suggestions = [...spellResults.suggestions].sort((a, b) => b.index - a.index);
+
+    suggestions.forEach((s) => {
+      const start = s.index;
+      const end = s.index + s.from.length;
+      highlightedText =
+        highlightedText.slice(0, start) +
+        `<span class="spell-error" style="border-bottom: 2px wavy red; cursor: help;">${text.slice(start, end)}</span>` +
+        highlightedText.slice(end);
+    });
+
+    return highlightedText;
+  };
+
 const Index = () => {
   const [text, setText] = useState("");
   const [mode, setMode] = useState<Mode>("sentiment");
@@ -46,6 +64,24 @@ const Index = () => {
   const [hasPredictionAttempt, setHasPredictionAttempt] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
 
+  const renderTextWithHighlights = () => {
+    if (!spellResults) return text;
+
+    let highlightedText = text;
+    const suggestions = [...spellResults.suggestions].sort((a, b) => b.index - a.index);
+
+    suggestions.forEach((s) => {
+      const start = s.index;
+      const end = s.index + s.from.length;
+      highlightedText =
+        highlightedText.slice(0, start) +
+        `<span class="spell-error" style="border-bottom: 2px wavy red; cursor: help;">${text.slice(start, end)}</span>` +
+        highlightedText.slice(end);
+    });
+
+    return highlightedText;
+  };
+
   // Results per mode
   const [sentimentResult, setSentimentResult] = useState<{
     sentiment: string;
@@ -53,23 +89,25 @@ const Index = () => {
     confidence: number;
     model: string;
   } | null>(null);
-  const [spellResult, setSpellResult] = useState<{
+  const [predictions, setPredictions] = useState<PredictionItem[]>([]);
+  const [topPrediction, setTopPrediction] = useState("");
+  const [spellResults, setSpellResults] = useState<{
     original_text: string;
     corrected_text: string;
     suggestions: { index: number; from: string; suggest: string; edit_distance: number }[];
   } | null>(null);
-  const [predictions, setPredictions] = useState<PredictionItem[]>([]);
 
   const clearResults = () => {
     setSentimentResult(null);
-    setSpellResult(null);
     setPredictions([]);
+    setTopPrediction("");
+    setSpellResults(null);
     setHasPredictionAttempt(false);
   };
 
   const handleAnalyze = useCallback(async () => {
-    if (!text.trim()) {
-      toast("Please paste some Nepali text first.");
+    if (text.trim().length < 2) {
+      toast("Please enter at least two characters for analysis.");
       return;
     }
     setLoading(true);
@@ -80,11 +118,6 @@ const Index = () => {
         case "sentiment": {
           const res = await analyzeSentiment(text);
           setSentimentResult(res);
-          break;
-        }
-        case "spell": {
-          const res = await spellCheck(text, false);
-          setSpellResult(res);
           break;
         }
         case "predict": {
@@ -110,10 +143,27 @@ const Index = () => {
 
   const applyCorrection = (corrected: string) => {
     setText(corrected);
-    setSpellResult(null);
+    setSpellResults(null);
     toast.success("Corrections applied!");
   };
 
+  const fixSingleError = (index: number, suggest: string) => {
+    if (!spellResults) return;
+
+    const error = spellResults.suggestions.find(s => s.index === index);
+    if (!error) return;
+
+    const newText =
+      text.slice(0, error.index) +
+      suggest +
+      text.slice(error.index + error.from.length);
+
+    setText(newText);
+
+    // Re-run spell check to update highlights and remaining errors
+    handleSpellCheck();
+    toast.success("Word fixed!");
+  };
   const insertPrediction = async (word: string) => {
     const nextText = text.endsWith(" ") ? `${text}${word}` : `${text} ${word}`;
     setText(nextText);
@@ -123,7 +173,9 @@ const Index = () => {
     setHasPredictionAttempt(true);
     try {
       const res = await predictText(nextText, 5);
-      setPredictions(normalizePredictions(res.predictions));
+      const normalized = normalizePredictions(res.predictions);
+      setPredictions(normalized);
+      setTopPrediction(normalized[0]?.word || "");
       setApiConnected(true);
     } catch (error) {
       setApiConnected(false);
@@ -134,9 +186,56 @@ const Index = () => {
     }
   };
 
+  const handleSpellCheck = async () => {
+    if (text.trim().length < 2) {
+      toast("Please enter at least two characters for spell check.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const res = await spellCheck(text, false);
+      setSpellResults(res);
+      setApiConnected(true);
+    } catch (error) {
+      setApiConnected(false);
+      const message = error instanceof Error ? error.message : "Failed to perform spell check";
+      toast.error(message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handlePredictRefresh = async (currentText: string) => {
+    if (currentText.trim().length < 2) return;
+    setLoading(true);
+    try {
+      const res = await predictText(currentText, 5);
+      const normalized = normalizePredictions(res.predictions);
+      setPredictions(normalized);
+      setTopPrediction(normalized[0]?.word || "");
+      setApiConnected(true);
+    } catch (error) {
+      setApiConnected(false);
+      console.error("Prediction refresh failed:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
     const onKeyDown = (event: KeyboardEvent) => {
       if (mode !== "predict") return;
+
+      if (event.key === "Escape") {
+        setTopPrediction("");
+        return;
+      }
+
+      if (event.key === "Tab" && topPrediction) {
+        event.preventDefault();
+        void insertPrediction(topPrediction);
+        return;
+      }
 
       if ((event.ctrlKey || event.metaKey) && event.key === "Enter") {
         if (loading || !text.trim()) return;
@@ -156,7 +255,7 @@ const Index = () => {
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [mode, loading, text, predictions, handleAnalyze, insertPrediction]);
+  }, [mode, loading, text, predictions, topPrediction, handleAnalyze, insertPrediction]);
 
   const testConnection = async () => {
     try {
@@ -186,7 +285,7 @@ const Index = () => {
   };
 
   const hasPredictResult = mode === "predict" && (predictions.length > 0 || hasPredictionAttempt || loading);
-  const hasResult = sentimentResult || spellResult || hasPredictResult;
+  const hasResult = sentimentResult || spellResults || hasPredictResult;
 
   const modeIcons: Record<Mode, React.ReactNode> = {
     sentiment: <Brain className="h-3.5 w-3.5" />,
@@ -239,8 +338,8 @@ const Index = () => {
             <CardContent className="space-y-3 px-4 pb-4 pt-0">
               {/* Mode Tabs */}
               <Tabs value={mode} onValueChange={(v) => { setMode(v as Mode); clearResults(); }}>
-                <TabsList className="w-full grid grid-cols-3 h-8">
-                  {(["sentiment", "spell", "predict"] as Mode[]).map((m) => (
+                <TabsList className="w-full grid grid-cols-2 h-8">
+                  {(["sentiment", "predict"] as Mode[]).map((m) => (
                     <TabsTrigger key={m} value={m} className="text-[11px] gap-1 px-1">
                       {modeIcons[m]}
                       <span className="hidden sm:inline">{m === "predict" ? "Predict" : m.charAt(0).toUpperCase() + m.slice(1)}</span>
@@ -250,14 +349,35 @@ const Index = () => {
               </Tabs>
 
               {/* Text Input */}
-              <Textarea
-                ref={textareaRef}
-                id="nepali-text"
-                placeholder="Type or paste Nepali / Romanized text…"
-                value={text}
-                onChange={(e) => setText(e.target.value)}
-                className="rounded-lg p-3 text-sm shadow-none min-h-[100px] resize-none"
-              />
+              <div className="relative w-full">
+                <div
+                  className="absolute inset-0 p-3 text-sm pointer-events-none whitespace-pre-wrap break-words text-transparent"
+                  style={{ fontFamily: 'inherit', lineHeight: 'inherit' }}
+                >
+                  {text}
+                  {mode === "predict" && text.endsWith(" ") && topPrediction && (
+                    <span className="text-muted-foreground/50">{topPrediction}</span>
+                  )}
+                </div>
+                <Textarea
+                  ref={textareaRef}
+                  id="nepali-text"
+                  placeholder="Type or paste Nepali / Romanized text…"
+                  value={text}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setText(val);
+                    if (mode === "predict") {
+                      if (val.endsWith(" ")) {
+                        handlePredictRefresh(val);
+                      } else {
+                        setTopPrediction("");
+                      }
+                    }
+                  }}
+                  className="rounded-lg p-3 text-sm shadow-none min-h-[100px] resize-none bg-transparent relative z-10"
+                />
+              </div>
 
               {/* Actions row */}
               <div className="flex items-center justify-between">
@@ -272,6 +392,16 @@ const Index = () => {
                       <TooltipContent>Copy</TooltipContent>
                     </Tooltip>
                   </TooltipProvider>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    className="h-7 px-2 text-xs font-medium gap-1.5"
+                    onClick={handleSpellCheck}
+                    disabled={loading}
+                  >
+                    <SpellCheck className="h-3.5 w-3.5" />
+                    <span>Spell Check</span>
+                  </Button>
                 </div>
 
                 <Button
@@ -309,12 +439,12 @@ const Index = () => {
                     />
                   )}
 
-                  {spellResult && (
+                  {spellResults && (
                     <SpellCheckResultDisplay
-                      originalText={spellResult.original_text}
-                      correctedText={spellResult.corrected_text}
-                      corrections={spellResult.suggestions}
-                      onApply={applyCorrection}
+                      originalText={spellResults.original_text}
+                      correctedText={spellResults.corrected_text}
+                      corrections={spellResults.suggestions}
+                      onFix={fixSingleError}
                     />
                   )}
 
