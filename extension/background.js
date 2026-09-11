@@ -12,7 +12,7 @@ chrome.runtime.onInstalled.addListener(() => {
   // Set default API URL
   chrome.storage.local.get("apiBaseUrl", (data) => {
     if (!data.apiBaseUrl) {
-      chrome.storage.local.set({ apiBaseUrl: "http://127.0.0.1:8000" });
+      chrome.storage.local.set({ apiBaseUrl: "https://neptext-server-production.up.railway.app" });
     }
   });
 });
@@ -32,21 +32,20 @@ chrome.contextMenus.onClicked.addListener((info, tab) => {
   }
 });
 
-// Listen for messages from content script
 chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
   if (message.type === "GET_SELECTED_TEXT") {
     chrome.storage.local.get("selectedText", (data) => {
       sendResponse({ text: data.selectedText || "" });
-      // Clear after reading
       chrome.storage.local.remove("selectedText");
     });
-    return true; // async response
+    return true;
   }
 
   if (message.type === "API_CALL") {
-    chrome.storage.local.get("apiBaseUrl", async (data) => {
-      const baseUrl = data.apiBaseUrl || "http://127.0.0.1:8000";
+    (async () => {
       try {
+        const data = await chrome.storage.local.get("apiBaseUrl");
+        const baseUrl = data.apiBaseUrl || "https://neptext-server-production.up.railway.app";
         const res = await fetch(`${baseUrl}${message.endpoint}`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -61,7 +60,7 @@ chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
       } catch (err) {
         sendResponse({ success: false, error: err.message });
       }
-    });
-    return true; // async response
+    })();
+    return true;
   }
 });

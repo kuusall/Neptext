@@ -2,14 +2,14 @@
 
 Base URL:
 
-- `http://127.0.0.1:8000`
+- `https://neptext-server-production.up.railway.app`
 
 ## 1) Health Check
 
 ### Request
 
 ```bash
-curl -X GET "http://127.0.0.1:8000/health"
+curl -X GET "https://neptext-server-production.up.railway.app/health"
 ```
 
 ### Response
@@ -26,7 +26,7 @@ curl -X GET "http://127.0.0.1:8000/health"
 ### Request
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/sentiment" \
+curl -X POST "https://neptext-server-production.up.railway.app/sentiment" \
   -H "Content-Type: application/json" \
   -d "{\"text\":\"यो movie ramro cha 😊 10/10\"}"
 ```
@@ -84,7 +84,7 @@ Frontend should read:
 ### Frontend Fetch Example
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/sentiment" \
+curl -X POST "https://neptext-server-production.up.railway.app/sentiment" \
   -H "Content-Type: application/json" \
   -d "{\"text\":\"यो नीतिमा केही सुधार चाहिन्छ तर पूर्ण नराम्रो छैन\"}"
 ```
@@ -94,7 +94,7 @@ curl -X POST "http://127.0.0.1:8000/sentiment" \
 ### Request (suggest-only)
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/spell-correct" \
+curl -X POST "https://neptext-server-production.up.railway.app/spell-correct" \
   -H "Content-Type: application/json" \
   -d "{\"text\":\"म नेपाल जाान्छु।\",\"suggest_only\":true}"
 ```
@@ -119,42 +119,50 @@ curl -X POST "http://127.0.0.1:8000/spell-correct" \
 ### Request (auto-correct)
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/spell-correct" \
+curl -X POST "https://neptext-server-production.up.railway.app/spell-correct" \
   -H "Content-Type: application/json" \
   -d "{\"text\":\"म नेपाल जाान्छु।\",\"suggest_only\":false}"
 ```
 
 ## 4) Word Prediction
 
+Word prediction is now context-aware. It uses recent token windows and reranking, so predictions adapt better to sentence meaning instead of returning a static frequent-word list.
+
 ### Request
 
 ```bash
-curl -X POST "http://127.0.0.1:8000/word-predict" \
+curl -X POST "https://neptext-server-production.up.railway.app/word-predict" \
   -H "Content-Type: application/json" \
-  -d "{\"text\":\"नेपाल एक\",\"top_k\":5}"
+  -d "{\"text\":\"यो नीतिमा सुधार\",\"top_k\":5}"
 ```
 
 ### Response
 
 ```json
 {
-  "context": "नेपाल एक",
+  "context": "यो नीतिमा सुधार",
   "predictions": [
     {
-      "word": "सुन्दर",
-      "probability": 0.42
+      "word": "ल्याउनुपर्नेमा",
+      "probability": 0.085947
     },
     {
-      "word": "देश",
-      "probability": 0.27
+      "word": "भनिएको",
+      "probability": 0.069237
     },
     {
-      "word": "राम्रो",
-      "probability": 0.18
+      "word": "गर्न",
+      "probability": 0.033435
     }
   ]
 }
 ```
+
+Frontend recommendation for better results:
+
+- Send the latest full phrase/clause (not just one word).
+- Keep punctuation and mixed Nepali text as typed by user.
+- Re-query after each new token for autocomplete UX.
 
 ## 5) Error Response
 
@@ -172,5 +180,5 @@ uvicorn app:app --reload
 
 OpenAPI Docs:
 
-- `http://127.0.0.1:8000/docs`
-- `http://127.0.0.1:8000/redoc`
+- `https://neptext-server-production.up.railway.app/docs`
+- `https://neptext-server-production.up.railway.app/redoc`

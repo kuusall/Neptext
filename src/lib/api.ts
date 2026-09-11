@@ -3,7 +3,7 @@
  * Endpoint contracts are aligned with curl.md documentation.
  */
 
-const API_BASE_URL = import.meta.env.VITE_NEPTEXT_API_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = import.meta.env.VITE_NEPTEXT_API_URL || "https://neptext-server-production.up.railway.app";
 
 export interface HealthResponse {
   status: string;
@@ -65,6 +65,14 @@ const SENTIMENT_ALIASES: Record<string, string> = {
   positive: "positive",
 };
 
+export const SENTIMENT_SEVERITY_MAP: Record<string, string> = {
+  negative: "high_risk",
+  semi_negative: "warning",
+  neutral: "neutral",
+  semi_positive: "good",
+  positive: "excellent",
+};
+
 function clamp01(value: number): number {
   return Math.max(0, Math.min(1, value));
 }
@@ -104,7 +112,7 @@ function normalizeSentimentLabel(rawLabel: unknown, rawLabelId: unknown): { sent
   };
 }
 
-function normalizeSentimentResponse(raw: any): SentimentResult {
+function normalizeSentimentResponse(raw: unknown): SentimentResult {
   const labelIdFromLabel =
     typeof raw?.label === "string" && raw.label.toLowerCase().startsWith("label_")
       ? Number(raw.label.toLowerCase().replace("label_", ""))
@@ -133,8 +141,19 @@ async function apiPost<T>(endpoint: string, body: Record<string, unknown>): Prom
   });
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`API Error (${res.status}): ${err}`);
+    let errorMsg = `API Error (${res.status})`;
+    const text = await res.text();
+    try {
+      const errJson = JSON.parse(text);
+      if (errJson && typeof errJson === "object" && "detail" in errJson) {
+        errorMsg += `: ${errJson.detail}`;
+      } else {
+        errorMsg += `: ${text}`;
+      }
+    } catch {
+      errorMsg += `: ${text}`;
+    }
+    throw new Error(errorMsg);
   }
 
   return res.json();
@@ -144,8 +163,19 @@ async function apiGet<T>(endpoint: string): Promise<T> {
   const res = await fetch(`${API_BASE_URL}${endpoint}`);
 
   if (!res.ok) {
-    const err = await res.text();
-    throw new Error(`API Error (${res.status}): ${err}`);
+    let errorMsg = `API Error (${res.status})`;
+    const text = await res.text();
+    try {
+      const errJson = JSON.parse(text);
+      if (errJson && typeof errJson === "object" && "detail" in errJson) {
+        errorMsg += `: ${errJson.detail}`;
+      } else {
+        errorMsg += `: ${text}`;
+      }
+    } catch {
+      errorMsg += `: ${text}`;
+    }
+    throw new Error(errorMsg);
   }
 
   return res.json();
@@ -156,7 +186,7 @@ export async function checkHealth(): Promise<HealthResponse> {
 }
 
 export async function analyzeSentiment(text: string): Promise<SentimentResult> {
-  const raw = await apiPost<any>("/sentiment", { text });
+  const raw = await apiPost<unknown>("/sentiment", { text });
   return normalizeSentimentResponse(raw);
 }
 
@@ -167,9 +197,7 @@ export async function spellCheck(text: string, suggestOnly = false): Promise<Spe
 export async function predictText(text: string, topK = 5): Promise<PredictionResult> {
   return apiPost<PredictionResult>("/word-predict", { text, top_k: topK });
 }
-export async function predictText(text: string, cursorPosition?: number): Promise<PredictionResult> {
-  return apiCall<PredictionResult>("/api/predict", { text, cursor_position: cursorPosition });
-}
+
 
 
 export function getApiBaseUrl(): string {

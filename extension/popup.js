@@ -38,7 +38,7 @@ function escapeHtml(text) {
 
 // Load saved API URL
 chrome.storage.local.get(["apiBaseUrl", "selectedText"], (data) => {
-  apiUrlInput.value = data.apiBaseUrl || "http://127.0.0.1:8000";
+  apiUrlInput.value = data.apiBaseUrl || "https://neptext-server-production.up.railway.app";
   if (data.selectedText) {
     input.value = data.selectedText;
     chrome.storage.local.remove("selectedText");

@@ -20,9 +20,8 @@
   },
   "content_scripts": [
     {
-      "matches": ["<all_urls>"],
-      "js": ["content.js"],
-      "css": ["content.css"]
+      "matches": ["http://*/*", "https://*/*"],
+      "js": ["content.js"]
     }
   ],
   "icons": {

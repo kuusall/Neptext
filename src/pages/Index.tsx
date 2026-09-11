@@ -204,7 +204,7 @@ const Index = () => {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2.5">
                   <img
-                    src="/lovable-uploads/4bf81b54-5fff-444d-80e4-93b52ed0ebcf.png"
+                    src="/logo.png"
                     alt="NepText logo"
                     className="h-7 w-7 rounded-md object-contain"
                     loading="lazy"
