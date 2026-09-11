@@ -1,10 +1,18 @@
+
+
 # NepText 🇳🇵
 
-NepText is a comprehensive Nepali Natural Language Processing (NLP) toolkit designed to enhance the digital experience of the Nepali language. It provides a suite of tools including transliteration, sentiment analysis, spell correction, and context-aware word prediction.
+NepText is a comprehensive Nepali Natural Language Processing (NLP) toolkit designed to enhance the digital experience of the Nepali language. It provides a suite of tools including sentiment analysis, spell correction, and context-aware word prediction.
+
+## Demo
+
+
+https://github.com/user-attachments/assets/8b975c12-fe22-445e-9ff3-e3f4f7d844e0
+
+
 
 ## 🚀 Features
 
-- **Romanized to Devanagari Transliteration**: Effortlessly convert Romanized Nepali text into Unicode Devanagari script.
 - **Sentiment Analysis**: Analyze the emotional tone of Nepali text with a 5-class classification system:
   - `Positive`
   - `Semi-Positive`
@@ -40,7 +48,7 @@ A high-performance API powered by **FastAPI** (Python), hosting the machine lear
 ### Running the Frontend
 1. Clone the repository:
    \`\`\`bash
-   git clone https://github.com/[your-username]/neptext.git
+   git clone https://github.com/kuusall/neptext.git
    cd neptext
    \`\`\`
 2. Install dependencies:
