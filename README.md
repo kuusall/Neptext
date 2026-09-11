@@ -7,7 +7,7 @@ NepText is a comprehensive Nepali Natural Language Processing (NLP) toolkit desi
 ## Demo
 
 
-https://github.com/user-attachments/assets/8b975c12-fe22-445e-9ff3-e3f4f7d844e0
+https://github.com/user-attachments/assets/e4d3e7f8-8e6d-4d9f-b44f-4a7c1204621a
 
 
 
