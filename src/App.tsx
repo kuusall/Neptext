@@ -23,7 +23,7 @@ const App = () => (
       </BrowserRouter>
     </TooltipProvider>
   </QueryClientProvider>
-  <Analytics/>
+  <Analytics />
 );
 
 export default App;
